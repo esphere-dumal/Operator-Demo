@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/part-of: demo
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: demo
-  name: job-sample
+  name: ls_job
 spec:
   command: "ls -a"
 

@@ -57,6 +57,11 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// 2. Execute target command with a new pod
+	if job.Status.State != esphev1.NotStarted {
+		log.Info("Job has started")
+		return ctrl.Result{}, client.IgnoreAlreadyExists(nil)
+	}
+
 	pod := NewPod(&job)
 	_, errCreate := ctrl.CreateOrUpdate(ctx, r.Client, pod, func() error {
 		return ctrl.SetControllerReference(&job, pod, r.Scheme)
@@ -66,12 +71,13 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: 3. Update job status
 	job.Status.State = esphev1.Running
 	if err := r.Status().Update(ctx, &job); err != nil {
 		log.Error(err, "unable to update job state")
 		return ctrl.Result{}, err
 	}
+
+	// TODO: 3. Tracking job status
 
 	return ctrl.Result{}, nil
 }
@@ -84,6 +90,7 @@ func (r *JobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// NewPod creates a new pod for executing command of the job
 func NewPod(job *esphev1.Job) *corev1.Pod {
 	labels := map[string]string{
 		"app": job.Name,
@@ -98,8 +105,8 @@ func NewPod(job *esphev1.Job) *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:    "busybox",
-					Image:   "busybox",
+					Name:    "alpine",
+					Image:   "alpine",
 					Command: strings.Split(job.Spec.Command, " "),
 				},
 			},

@@ -48,12 +48,31 @@ type JobReconciler struct {
 func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
+	// dev: check current state
+	outputState := func(job esphev1.Job) {
+		switch job.Status.State {
+		case esphev1.NotStarted:
+			log.Info("current state not started")
+			break
+		case esphev1.Running:
+			log.Info("current state not Running")
+			break
+		case esphev1.Finished:
+			log.Info("current state not Finished")
+			break
+		case esphev1.Error:
+			log.Info("current state not Error")
+			break
+		}
+	}
+
 	// 1. Get target CR triggered controller
 	var job esphev1.Job
 	if err := r.Get(ctx, req.NamespacedName, &job); err != nil {
 		log.Error(err, "Unable to fetch Job")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	outputState(job)
 
 	// 2. Execute target command with a new pod
 	// Todo: Check job validation

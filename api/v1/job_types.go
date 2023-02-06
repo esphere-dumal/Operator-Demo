@@ -37,7 +37,7 @@ type JobSpec struct {
 
 // JobStatus defines the observed state of Job
 type JobStatus struct {
-	State JobState `json:"state,omitempty"`
+	State JobState `json:"state"`
 	// Echo is the output of command or Error message
 	Echo string `json:"echo,omitempty"`
 }

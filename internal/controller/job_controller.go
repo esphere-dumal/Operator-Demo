@@ -56,12 +56,7 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// 2. Execute target command with a new pod
-	print(job.Status.State)
-	if job.Status.State != esphev1.NotStarted {
-		log.Info("Job has started")
-		return ctrl.Result{}, client.IgnoreAlreadyExists(nil)
-	}
-
+	// Todo: Check job validation
 	pod := NewPod(&job)
 	_, errCreate := ctrl.CreateOrUpdate(ctx, r.Client, pod, func() error {
 		return ctrl.SetControllerReference(&job, pod, r.Scheme)

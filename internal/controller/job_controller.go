@@ -47,7 +47,6 @@ type JobReconciler struct {
 // the user.
 func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Controller get a job to handle")
 
 	// 1. Get target CR triggered controller
 	var job esphev1.Job
@@ -57,6 +56,7 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// 2. Execute target command with a new pod
+	print(job.Status.State)
 	if job.Status.State != esphev1.NotStarted {
 		log.Info("Job has started")
 		return ctrl.Result{}, client.IgnoreAlreadyExists(nil)

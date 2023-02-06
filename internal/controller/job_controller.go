@@ -18,7 +18,10 @@ package controller
 
 import (
 	"context"
+	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,8 +56,15 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// TODO: 2. Execute target command
-	log.Info(job.Spec.Command)
+	// 2. Execute target command with a new pod
+	pod := NewPod(&job)
+	_, errCreate := ctrl.CreateOrUpdate(ctx, r.Client, pod, func() error {
+		return ctrl.SetControllerReference(&job, pod, r.Scheme)
+	})
+	if errCreate != nil {
+		log.Error(errCreate, "Error creating pod")
+		return ctrl.Result{}, nil
+	}
 
 	// TODO: 3. Update job status
 	job.Status.State = esphev1.Running
@@ -70,5 +80,30 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 func (r *JobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&esphev1.Job{}).
+		Owns(&corev1.Pod{}).
 		Complete(r)
+}
+
+func NewPod(job *esphev1.Job) *corev1.Pod {
+	labels := map[string]string{
+		"app": job.Name,
+	}
+
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      job.Name,
+			Namespace: job.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:    "busybox",
+					Image:   "busybox",
+					Command: strings.Split(job.Spec.Command, " "),
+				},
+			},
+			RestartPolicy: corev1.RestartPolicyOnFailure,
+		},
+	}
 }

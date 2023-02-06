@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,14 +56,17 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			log.Info("current state not started")
 			break
 		case esphev1.Running:
-			log.Info("current state not Running")
+			log.Info("current state Running")
 			break
 		case esphev1.Finished:
-			log.Info("current state not Finished")
+			log.Info("current state Finished")
 			break
 		case esphev1.Error:
-			log.Info("current state not Error")
+			log.Info("current state Error")
 			break
+		default:
+			log.Info("default state")
+			fmt.Println(job.Status.State)
 		}
 	}
 

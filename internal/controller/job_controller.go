@@ -97,12 +97,14 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		// Check target pod status
 		// Todo: assuming only one container
 		if len(pod.Status.ContainerStatuses) != 1 {
+			log.Info("pod has more than one container")
 			return reconcile.Result{}, client.IgnoreNotFound(nil)
 		}
 
 		status := pod.Status.ContainerStatuses[0]
 		if status.State.Terminated == nil {
 			// not finished yet
+			log.Info("container is still running")
 			break
 		}
 

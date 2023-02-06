@@ -70,9 +70,7 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	case esphev1.Running:
 		// Turn into Finished or Error
 		log.Info("current state Running")
-		break
-	case esphev1.Finished:
-		log.Info("current state Finished")
+
 		// Check the pod state related to this job
 		var podlist corev1.PodList
 		var pod *corev1.Pod = nil
@@ -119,6 +117,9 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 				return ctrl.Result{}, err
 			}
 		}
+		break
+	case esphev1.Finished:
+		log.Info("current state Finished")
 		break
 	case esphev1.Error:
 		log.Info("current state Error")

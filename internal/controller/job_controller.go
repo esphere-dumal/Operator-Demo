@@ -39,18 +39,25 @@ type JobReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
 // the Job object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
+	log.Info("Controller get a job to handle")
 
-	// TODO(user): your logic here
+	// 1. Get target CR triggered controller
+	var job esphev1.Job
+	if err := r.Get(ctx, req.NamespacedName, &job); err != nil {
+		log.Error(err, "Unable to fetch Job")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
+	// TODO: 2. Execute target command
+	log.Info(job.Spec.Command)
+
+	// TODO: 3. Update job status
+	job.Status.State = esphev1.Running
 	return ctrl.Result{}, nil
 }
 

@@ -20,22 +20,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type JobState string
+
+const (
+	NotStarted JobState = "NotStarted"
+	Running    JobState = "Running"
+	Finished   JobState = "Finished"
+	Error      JobState = "Error"
+)
 
 // JobSpec defines the desired state of Job
 type JobSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Job. Edit job_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Command is the thing CRD expected todo
+	Command string `json:"command"`
 }
 
 // JobStatus defines the observed state of Job
 type JobStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	State JobState `json:"state,omitempty"`
+	// Echo is the output of command or Error message
+	Echo string `json:"echo,omitempty"`
 }
 
 //+kubebuilder:object:root=true

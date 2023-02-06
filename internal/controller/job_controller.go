@@ -58,6 +58,11 @@ func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// TODO: 3. Update job status
 	job.Status.State = esphev1.Running
+	if err := r.Status().Update(ctx, &job); err != nil {
+		log.Error(err, "unable to update job state")
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 

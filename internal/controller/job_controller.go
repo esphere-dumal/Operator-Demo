@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	esphev1 "demo/api/v1"
 )
@@ -49,53 +49,94 @@ type JobReconciler struct {
 func (r *JobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	// dev: check current state
-	outputState := func(job esphev1.Job) {
-		switch job.Status.State {
-		case esphev1.NotStarted:
-			log.Info("current state not started")
-			break
-		case esphev1.Running:
-			log.Info("current state Running")
-			break
-		case esphev1.Finished:
-			log.Info("current state Finished")
-			break
-		case esphev1.Error:
-			log.Info("current state Error")
-			break
-		default:
-			log.Info("default state")
-			fmt.Println(job.Status.State)
-		}
-	}
-
-	// 1. Get target CR triggered controller
+	// Get target CR triggered controller
 	var job esphev1.Job
 	if err := r.Get(ctx, req.NamespacedName, &job); err != nil {
 		log.Error(err, "Unable to fetch Job")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	outputState(job)
 
-	// 2. Execute target command with a new pod
-	// Todo: Check job validation
-	pod := NewPod(&job)
-	_, errCreate := ctrl.CreateOrUpdate(ctx, r.Client, pod, func() error {
-		return ctrl.SetControllerReference(&job, pod, r.Scheme)
-	})
-	if errCreate != nil {
-		log.Error(errCreate, "Error creating pod")
-		return ctrl.Result{}, nil
+	updateState := func(job *esphev1.Job, newState esphev1.JobState) error {
+		job.Status.State = newState
+		if err := r.Status().Update(ctx, job); err != nil {
+			log.Error(err, "unable to update job state")
+			return err
+		}
+		return nil
 	}
 
-	job.Status.State = esphev1.Running
-	if err := r.Status().Update(ctx, &job); err != nil {
-		log.Error(err, "unable to update job state")
-		return ctrl.Result{}, err
-	}
+	// Update stauts based current state
+	switch job.Status.State {
+	case esphev1.Running:
+		// Turn into Finished or Error
+		log.Info("current state Running")
+		break
+	case esphev1.Finished:
+		log.Info("current state Finished")
+		// Check the pod state related to this job
+		var podlist corev1.PodList
+		var pod *corev1.Pod = nil
+		if err := r.List(ctx, &podlist); err != nil {
+			log.Error(err, "Unable to list pods")
+		} else {
+			for _, item := range podlist.Items {
+				if item.GetName() == job.Name {
+					*pod = item
+					break
+				}
+			}
+		}
 
-	// TODO: 3. Tracking job status
+		// Pod not found
+		if pod == nil {
+			log.Info("No related pod found")
+			updateState(&job, esphev1.Error)
+			return reconcile.Result{}, client.IgnoreNotFound(nil)
+		}
+
+		// Check target pod status
+		// Todo: assuming only one container
+		if len(pod.Status.ContainerStatuses) != 1 {
+			return reconcile.Result{}, client.IgnoreNotFound(nil)
+		}
+
+		status := pod.Status.ContainerStatuses[0]
+		if status.State.Terminated == nil {
+			// not finished yet
+			break
+		}
+
+		if status.State.Terminated.ExitCode == 0 {
+			// Finished
+			if err := updateState(&job, esphev1.Finished); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else {
+			log.Info(status.State.Terminated.Reason)
+			if err := updateState(&job, esphev1.Error); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		break
+	case esphev1.Error:
+		log.Info("current state Error")
+		break
+	default: // NotStarted Actually
+		log.Info("current state NotStarted")
+		// Execute target command with a new pod
+		pod := NewPod(&job)
+		_, errCreate := ctrl.CreateOrUpdate(ctx, r.Client, pod, func() error {
+			return ctrl.SetControllerReference(&job, pod, r.Scheme)
+		})
+		if errCreate != nil {
+			log.Error(errCreate, "Error creating pod")
+			return ctrl.Result{}, nil
+		}
+
+		if err := updateState(&job, esphev1.Running); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
